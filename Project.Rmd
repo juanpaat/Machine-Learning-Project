@@ -1,0 +1,144 @@
+---
+title: "Analysis"
+author: "Juan P. Alzate"
+date: "1/15/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+--------
+Github Repository: [Github-juanpaat](https://github.com/juanpaat/Machine-Learning-Project.git)  
+ 
+This document holds the final project for the Coursera "practical Machine Learning" course. Here we analyse data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to predict the way in which they did the exercise.  
+ 
+## Background  
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).   
+
+## Data   
+The training data for this project are available here:   
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv  
+
+The test data are available here:  
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv   
+
+The data for this project come from this source:   http://groupware.les.inf.puc-rio.br/har.  
+ 
+ 
+Fist thing first, we load the packages that will be needed in order to get the best model and forecast the the manner in which some people did the exercise.  
+```{r, echo=FALSE}
+library(caret)
+library(rattle)
+library(rattle)
+library(randomForest)
+library(gbm)
+library(kernlab)
+library(corrplot)
+set.seed(1996)
+```
+
+
+
+Here we download the data directly from the link, to do that we used the read.csv function and then asigned the data to a RawTraining and Test variable.  
+```{r}
+RawTraining <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+
+Test<-read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+```
+
+
+
+## Cleaning the data  
+In order to work with the data that contain insights, first we removed the NAs values and second, the first 7 rows that contain information about the participants and other metadata are removed as well.  
+```{r}
+Training <- RawTraining[,colMeans(is.na(RawTraining)) < .9] 
+Training <- Training[,-c(1:7)]
+```
+
+Using the nearZeroVar() function from the caret package, we find and then remove the variables that are hace zero or almost zero variability because they will not help to build our models and may cause noise or make harder the computation.
+```{r}
+nvz <- nearZeroVar(Training)
+Training <- Training[,-nvz]
+```
+
+## split the data
+In order to create a model we need to split the data into train set (70% of the data) and valid set (30% of the data). To do that we use the createDataPartition function from the carot package.  
+```{r}
+inTrain <- createDataPartition(y=Training$classe, p=0.7, list=F)
+train <- Training[inTrain,]
+valid <- Training[-inTrain,]
+```
+
+
+## Correlation matrix of variables in training set
+Here we plot the heat map with the correlation values of the variables after cleaning and removing the noise.  For that we use the corrplot function from the corrplot package using the train dataset.
+```{r}
+corrPlot <- cor(train[, -length(names(train))])
+corrplot(corrPlot, method="color",tl.col = "black",tl.cex = 0.5)
+```
+
+
+## Creating a Model  
+To create a model we set up control for training to use 3-fold cross validation.
+```{r}
+control <- trainControl(method="cv", number=3, verboseIter=F)
+```
+
+## Support Vector Machine
+```{r}
+model_svm <- train(classe~., data=train, method="svmLinear", trControl = control, tuneLength = 5, verbose = F)
+pred_svm <- predict(model_svm, valid)
+cmsvm <- confusionMatrix(pred_svm, factor(valid$classe))
+cmsvm
+```
+
+## Random Forest  
+```{r}
+model_rf <- train(classe~., data=train, method="rf", trControl = control, tuneLength = 5)
+pred_rf <- predict(model_rf, valid)
+cmrf <- confusionMatrix(pred_rf, factor(valid$classe))
+cmrf
+```
+
+## Decision Tree
+```{r}
+model_trees <- train(classe~., data=train, method="rpart", trControl = control, tuneLength = 5)
+fancyRpartPlot(model_trees$finalModel)
+```
+
+```{r}
+pred_trees <- predict(model_trees, valid)
+cmtrees <- confusionMatrix(pred_trees, factor(valid$classe))
+cmtrees
+```
+
+
+## Gradient Boosted Trees
+```{r}
+model_gbm <- train(classe~., data=train, method="gbm", trControl = control, tuneLength = 5, verbose = F)
+pred_gbm <- predict(model_gbm, valid)
+cmgbm <- confusionMatrix(pred_gbm, factor(valid$classe))
+cmgbm
+```
+
+## Plotting the models
+```{r}
+plot(model_trees)
+plot(model_rf)
+plot(model_gbm)
+```
+
+**As we could see, the best model is the Random Forest, however the computation is a bit heavy.**  
+**The accuracy of this model was about 0.9951 and the error sample rate was 0.0049.**  
+
+
+## Prediction  
+We use the model_rf which is the model of the Random Forest to predict the class of the data in the Test data set, to do that we use the predict function from the carot package.
+```{r}
+pred <- predict(model_rf, Test)
+print(pred)
+``` 
