@@ -67,5 +67,5 @@ This project demonstrates the process of building, evaluating, and selecting mac
 
 **Repository Link**: [Machine Learning Project Repository](https://github.com/juanpaat/Machine-Learning-Project)
 
-.[!NOTE].
+[!NOTE]
 If you have any questions or would like to discuss the project further, please feel free to reach out!
